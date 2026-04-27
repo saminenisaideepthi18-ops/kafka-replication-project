@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+
+  # ─────────────────────────────────────────────
+  # Primary Cluster (Source / PR)
+  # ─────────────────────────────────────────────
+  kafka-primary:
+    image: apache/kafka:3.7.0
+    container_name: kafka-primary
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-primary:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:29093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-primary:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      # Task 2: Short retention to trigger log truncation quickly for testing
+      KAFKA_LOG_RETENTION_MS: 30000
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 1000
+      KAFKA_LOG_SEGMENT_BYTES: 1048576
+      KAFKA_LOG_SEGMENT_MS: 10000
+    volumes:
+      - primary_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ─────────────────────────────────────────────
+  # Topic Initializer — creates commit-log on primary
+  # ─────────────────────────────────────────────
+  kafka-primary-init:
+    image: apache/kafka:3.7.0
+    container_name: kafka-primary-init
+    depends_on:
+      kafka-primary:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      echo 'Creating commit-log topic on Primary cluster...'
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server kafka-primary:9092 \
+        --create \
+        --if-not-exists \
+        --topic commit-log \
+        --partitions 1 \
+        --replication-factor 1 \
+        --config retention.ms=60000
+
+      echo 'Creating ALL MirrorMaker 2 internal topics on BOTH clusters...'
+      # On Primary
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-offsets.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-configs.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-status.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-offsets.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-configs.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-primary:9092 --create --if-not-exists --topic mm2-status.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      
+      # On DR
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-offsets.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-configs.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-status.primary.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-offsets.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-configs.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-dr:9093 --create --if-not-exists --topic mm2-status.dr.internal --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+
+      echo 'Topic commit-log created successfully!'
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server kafka-primary:9092 \
+        --describe \
+        --topic commit-log
+    restart: "no"
+
+  # ─────────────────────────────────────────────
+  # DR / Standby Cluster (Target)
+  # ─────────────────────────────────────────────
+  kafka-dr:
+    image: apache/kafka:3.7.0
+    container_name: kafka-dr
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '2@kafka-dr:29094'
+      KAFKA_LISTENERS: 'PLAINTEXT://:9093,CONTROLLER://:29094'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-dr:9093'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - dr_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ─────────────────────────────────────────────
+  # Enhanced MirrorMaker 2 (custom patched image)
+  # ─────────────────────────────────────────────
+  mirrormaker2:
+    image: saideepthi18/enhanced-mm2:latest
+    container_name: mirrormaker2
+    depends_on:
+      kafka-primary:
+        condition: service_healthy
+      kafka-dr:
+        condition: service_healthy
+    volumes:
+      - ./mm2.properties:/opt/kafka/config/mm2.properties
+    command: ["/opt/kafka/config/mm2.properties"]
+    restart: on-failure
+
+  # ─────────────────────────────────────────────
+  # Commit Log Producer (Task 1)
+  # ─────────────────────────────────────────────
+  commit-log-producer:
+    image: saideepthi18/commit-log-producer:latest
+    container_name: commit-log-producer
+    depends_on:
+      kafka-primary-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BROKER: kafka-primary:9092
+      TOPIC_NAME: commit-log
+    # Produce exactly 1000 messages using --count flag (Task 1 requirement)
+    command: ["java", "-cp", ".:./lib/*", "ProducerApp", "--count", "1000"]
+    restart: "no"
+
+volumes:
+  primary_data:
+  dr_data:
