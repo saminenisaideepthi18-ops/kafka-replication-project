@@ -7,7 +7,7 @@ A production-ready, fault-tolerant Apache Kafka replication pipeline using a **m
 ## 🔗 Repository Links
 
 - **Kafka Fork**: [saminenisaideepthi18-ops/kafka](https://github.com/saminenisaideepthi18-ops/kafka)
-- **Pull Request**: [MirrorMaker 2 Fault-Tolerance Enhancement #1](https://github.com/saminenisaideepthi18-ops/kafka/pull/1)
+- **Pull Request**: [MirrorMaker 2 Fault-Tolerance Enhancement #2](https://github.com/saminenisaideepthi18-ops/kafka/pull/2)
 
 ---
 
