@@ -15,18 +15,18 @@ import java.util.concurrent.ExecutionException;
  *
  * Each event follows the schema:
  * {
- *   "event_id": "<uuid>",
- *   "timestamp": <epoch_seconds>,
- *   "op_type": "<INSERT|UPDATE|DELETE>",
- *   "key": "<doc:<hex>>",
- *   "value": { "status": "<string>" }
+ * "event_id": "<uuid>",
+ * "timestamp": <epoch_seconds>,
+ * "op_type": "<INSERT|UPDATE|DELETE>",
+ * "key": "<doc:<hex>>",
+ * "value": { "status": "<string>" }
  * }
  */
 public class ProducerApp {
 
     // Possible operation types for realistic simulation
-    private static final String[] OP_TYPES = {"INSERT", "UPDATE", "DELETE"};
-    private static final String[] STATUSES = {"active", "archived", "pending", "deleted", "published"};
+    private static final String[] OP_TYPES = { "INSERT", "UPDATE", "DELETE" };
+    private static final String[] STATUSES = { "active", "archived", "pending", "deleted", "published" };
 
     public static void main(String[] args) {
         // --- Parse --count N from CLI arguments ---
@@ -35,13 +35,10 @@ public class ProducerApp {
         String brokerUrl = System.getenv().getOrDefault("KAFKA_BROKER", "localhost:9092");
         String topic = System.getenv().getOrDefault("TOPIC_NAME", "commit-log");
 
-        System.out.println("===========================================");
         System.out.println("   Commit Log Producer Starting Up");
-        System.out.println("===========================================");
         System.out.println("Target Broker : " + brokerUrl);
         System.out.println("Target Topic  : " + topic);
         System.out.println("Message Count : " + count);
-        System.out.println("===========================================");
 
         Properties props = new Properties();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerUrl);
@@ -67,9 +64,7 @@ public class ProducerApp {
                     System.out.println("[" + i + "/" + count + "] Sent: " + kafkaKey);
                 }
             }
-            System.out.println("===========================================");
             System.out.println("All " + count + " events produced successfully!");
-            System.out.println("===========================================");
         } catch (InterruptedException | ExecutionException e) {
             System.err.println("[ERROR] Failed to produce messages: " + e.getMessage());
             e.printStackTrace();
