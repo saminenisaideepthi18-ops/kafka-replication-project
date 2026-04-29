@@ -72,26 +72,6 @@ docker-compose run --rm commit-log-producer \
 
 ---
 
-## 🧪 Test Execution
-
-Run all 3 fault-tolerance scenarios with the automation script:
-
-```bash
-# For Linux/Mac/Git Bash:
-bash run_challenge.sh
-
-# For Windows PowerShell:
-.\run_challenge.ps1
-```
-
-### What the script does:
-
-| Scenario | Description | Expected Result |
-|---|---|---|
-| **1. Normal Replication** | Produces 1000 msgs, waits for replication | 1000 msgs appear in `primary.commit-log` on DR |
-| **2. Log Truncation** | Pauses MM2, waits 70s for retention purge, resumes MM2 | MM2 detects offset gap → fails fast with `KafkaException` |
-| **3. Topic Reset** | Pauses MM2, deletes+recreates topic, resumes MM2 | MM2 catches `OffsetOutOfRangeException` → reseeks to offset 0 → replication resumes |
-
 ---
 
 ## 📋 Log Analysis Guide
