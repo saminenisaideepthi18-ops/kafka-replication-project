@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Disable path conversion for Git Bash on Windows
+export MSYS_NO_PATHCONV=1
+
 # =============================================================================
 #  run_challenge.sh
 #  Orchestrates the 3 fault-tolerance test scenarios for the Enhanced MM2
