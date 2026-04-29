@@ -70,16 +70,21 @@ docker-compose run --rm commit-log-producer \
   java -cp ".:./lib/*" ProducerApp --count 1000
 ```
 
+
 ---
+
+## 🧪 Test Execution
+
+Run the automated fault-tolerance validation suite:
+
+```bash
+# For Linux/Mac/Git Bash:
+bash run_challenge.sh
+```
 
 ---
 
 ## 📋 Log Analysis Guide
-
-### Monitor MM2 in real-time:
-```bash
-docker-compose logs -f mirrormaker2
-```
 
 ### Key log messages to watch for:
 
