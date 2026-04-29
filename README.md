@@ -65,9 +65,9 @@ docker-compose logs -f mirrormaker2
 ### Produce Messages Manually
 
 ```bash
-# Produce 500 messages to commit-log
+# Produce 1000 messages to commit-log
 docker-compose run --rm commit-log-producer \
-  java -cp ".:./lib/*" ProducerApp --count 500
+  java -cp ".:./lib/*" ProducerApp --count 1000
 ```
 
 ---
